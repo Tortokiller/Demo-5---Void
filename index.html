@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Void — Generative Field</title>
+<style>
+/* ═══ @PROPERTY — animatable custom props ═══════════════════════ */
+@property --hue {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 220;
+}
+@property --glow-x {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+@property --glow-y {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+
+/* ═══ TOKENS ════════════════════════════════════════════════════ */
+:root {
+  --bg: #05050a;
+  --glass: rgba(255,255,255,0.03);
+  --glass-border: rgba(255,255,255,0.06);
+  --text: #e8e8f0;
+  --text-dim: rgba(255,255,255,0.35);
+  --mono: 'Courier New', monospace;
+  --sans: system-ui, -apple-system, sans-serif;
+}
+
+/* ═══ BASE ══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  cursor: crosshair;
+  --hue: 220;
+  animation: hue-drift 30s linear infinite;
+}
+
+::selection { background: hsl(var(--hue) 70% 50% / .4); }
+
+@keyframes hue-drift { to { --hue: 580; } }
+
+/* ═══ CANVAS ════════════════════════════════════════════════════ */
+canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mix-blend-mode: screen;
+}
+
+/* ═══ AMBIENT GLOW — CSS-only radial gradient ═══════════════════ */
+.glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    600px circle at var(--glow-x) var(--glow-y),
+    hsl(var(--hue) 80% 55% / .08),
+    transparent 70%
+  );
+  transition: --glow-x .6s, --glow-y .6s;
+  z-index: 1;
+}
+
+/* ═══ HUD OVERLAY — glassmorphism + grid ════════════════════════ */
+.hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  grid-template:
+    "tl . tr" auto
+    ". . ."   1fr
+    "bl . br" auto
+    / auto 1fr auto;
+  padding: clamp(16px, 3vw, 32px);
+  pointer-events: none;
+}
+
+.hud > * { pointer-events: auto; }
+
+.hud-tl { grid-area: tl; }
+.hud-tr { grid-area: tr; text-align: right; }
+.hud-bl { grid-area: bl; }
+.hud-br { grid-area: br; text-align: right; align-self: end; }
+
+/* ═══ GLASS PANEL ═══════════════════════════════════════════════ */
+.panel {
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  width: fit-content;
+}
+
+/* ═══ TYPOGRAPHY ════════════════════════════════════════════════ */
+.title {
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  font-weight: 300;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.title em {
+  font-style: normal;
+  color: hsl(var(--hue) 70% 65%);
+  transition: color .5s;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: clamp(.65rem, 1.2vw, .78rem);
+  color: var(--text-dim);
+  line-height: 1.8;
+}
+
+.mono span {
+  color: hsl(var(--hue) 60% 60%);
+  transition: color .5s;
+}
+
+/* ═══ METRICS BAR ═══════════════════════════════════════════════ */
+.metrics {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: .7rem;
+  color: var(--text-dim);
+}
+
+.metric-val {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══ CONTROLS ══════════════════════════════════════════════════ */
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  all: unset;
+  font-family: var(--mono);
+  font-size: .7rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(8px);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all .25s;
+  user-select: none;
+}
+
+.btn:hover { color: var(--text); border-color: rgba(255,255,255,.15); }
+
+.btn.active {
+  color: hsl(var(--hue) 70% 65%);
+  border-color: hsl(var(--hue) 70% 65% / .3);
+  background: hsl(var(--hue) 70% 50% / .08);
+}
+
+/* ═══ RESPONSIVE — no media queries, all fluid ═════════════════ */
+.hide-mobile { opacity: clamp(0, (100vw - 500px) * 999, 1); }
+
+/* ═══ SCANLINE TEXTURE — pure CSS ══════════════════════════════ */
+.hud::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,.03) 2px,
+    rgba(0,0,0,.03) 4px
+  );
+  z-index: 0;
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div class="glow" id="glow"></div>
+
+<div class="hud">
+  <div class="hud-tl panel">
+    <p class="title">Void <em>·</em> Field</p>
+  </div>
+
+  <div class="hud-tr panel hide-mobile">
+    <p class="mono">
+      particles <span id="d-count">0</span><br />
+      fps <span id="d-fps">0</span><br />
+      mode <span id="d-mode">orbit</span>
+    </p>
+  </div>
+
+  <div class="hud-bl">
+    <div class="controls">
+      <button class="btn active" data-mode="orbit">Orbit</button>
+      <button class="btn" data-mode="swarm">Swarm</button>
+      <button class="btn" data-mode="explode">Explode</button>
+    </div>
+  </div>
+
+  <div class="hud-br">
+    <p class="mono" style="opacity:.4;">click anywhere · move cursor</p>
+  </div>
+</div>
+
+<script>
+/* ═══ CANVAS SETUP ═════════════════════════════════════════════ */
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const glow   = document.getElementById('glow');
+const dCount = document.getElementById('d-count');
+const dFps   = document.getElementById('d-fps');
+const dMode  = document.getElementById('d-mode');
+
+let W, H, mx = 0, my = 0, frame = 0, mode = 'orbit';
+const TAU = Math.PI * 2;
+const particles = [];
+const MAX = 600;
+
+/* ═══ RESIZE ═══════════════════════════════════════════════════ */
+const resize = () => {
+  W = canvas.width  = innerWidth  * devicePixelRatio;
+  H = canvas.height = innerHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  mx = innerWidth / 2;
+  my = innerHeight / 2;
+};
+resize();
+addEventListener('resize', resize);
+
+/* ═══ PARTICLE CLASS ═══════════════════════════════════════════ */
+class Particle {
+  constructor(x, y) {
+    this.x  = x;
+    this.y  = y;
+    this.vx = (Math.random() - .5) * 2;
+    this.vy = (Math.random() - .5) * 2;
+    this.r  = Math.random() * 2 + .5;
+    this.life = 1;
+    this.decay = Math.random() * .003 + .001;
+    this.hueOff = Math.random() * 40 - 20;
+  }
+
+  update(hue) {
+    const dx = mx - this.x;
+    const dy = my - this.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const force = Math.min(80 / dist, .6);
+
+    switch (mode) {
+      case 'orbit': {
+        const angle = Math.atan2(dy, dx) + Math.PI / 2;
+        this.vx += Math.cos(angle) * force * .4;
+        this.vy += Math.sin(angle) * force * .4;
+        break;
+      }
+      case 'swarm': {
+        this.vx += (dx / dist) * force * .5;
+        this.vy += (dy / dist) * force * .5;
+        break;
+      }
+      case 'explode': {
+        this.vx -= (dx / dist) * force * .6;
+        this.vy -= (dy / dist) * force * .6;
+        break;
+      }
+    }
+
+    this.vx *= .97;
+    this.vy *= .97;
+    this.x  += this.vx;
+    this.y  += this.vy;
+    this.life -= this.decay;
+
+    // Wrap edges
+    if (this.x < -10) this.x = innerWidth + 10;
+    if (this.x > innerWidth + 10) this.x = -10;
+    if (this.y < -10) this.y = innerHeight + 10;
+    if (this.y > innerHeight + 10) this.y = -10;
+  }
+
+  draw(hue) {
+    const alpha = this.life * .6;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, TAU);
+    ctx.fillStyle = `hsla(${hue + this.hueOff}, 70%, 65%, ${alpha})`;
+    ctx.fill();
+  }
+
+  get dead() { return this.life <= 0; }
+}
+
+/* ═══ SPAWN ════════════════════════════════════════════════════ */
+const spawn = (x, y, n = 5) => {
+  for (let i = 0; i < n && particles.length < MAX; i++) {
+    particles.push(new Particle(
+      x + (Math.random() - .5) * 40,
+      y + (Math.random() - .5) * 40
+    ));
+  }
+};
+
+// Seed initial field
+for (let i = 0; i < 200; i++) {
+  particles.push(new Particle(
+    Math.random() * innerWidth,
+    Math.random() * innerHeight
+  ));
+}
+
+/* ═══ RENDER LOOP ══════════════════════════════════════════════ */
+let lastTime = 0, fpsAccum = 0, fpsFrames = 0;
+
+const loop = (now) => {
+  requestAnimationFrame(loop);
+
+  // FPS counter
+  const dt = now - lastTime;
+  lastTime = now;
+  fpsAccum += dt;
+  fpsFrames++;
+  if (fpsAccum > 500) {
+    dFps.textContent = Math.round(1000 / (fpsAccum / fpsFrames));
+    fpsAccum = 0;
+    fpsFrames = 0;
+  }
+
+  // Hue from CSS @property
+  const hue = parseFloat(getComputedStyle(document.body).getPropertyValue('--hue'));
+
+  // Clear with trail
+  ctx.fillStyle = 'rgba(5, 5, 10, .12)';
+  ctx.fillRect(0, 0, innerWidth, innerHeight);
+
+  // Auto-spawn
+  if (frame % 3 === 0 && particles.length < MAX) {
+    spawn(
+      mx + (Math.random() - .5) * 120,
+      my + (Math.random() - .5) * 120,
+      2
+    );
+  }
+
+  // Update & draw
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.update(hue);
+    p.draw(hue);
+    if (p.dead) particles.splice(i, 1);
+  }
+
+  dCount.textContent = particles.length;
+  frame++;
+};
+requestAnimationFrame(loop);
+
+/* ═══ INTERACTION ══════════════════════════════════════════════ */
+addEventListener('pointermove', ({ clientX, clientY }) => {
+  mx = clientX;
+  my = clientY;
+  glow.style.setProperty('--glow-x', `${(clientX / innerWidth) * 100}%`);
+  glow.style.setProperty('--glow-y', `${(clientY / innerHeight) * 100}%`);
+});
+
+addEventListener('pointerdown', ({ clientX, clientY }) => {
+  spawn(clientX, clientY, 30);
+});
+
+/* ═══ MODE SWITCHING ═══════════════════════════════════════════ */
+document.querySelectorAll('[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelector('.btn.active')?.classList.remove('active');
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+    dMode.textContent = mode;
+  });
+});
+</script>
+</body>
+</html>
